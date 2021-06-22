@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect} from "react";
 import { getCriptoUpdateUrl } from "../constants";
+import useCounter from "../hooks/useCounter";
+import useRefreshData from "../hooks/useRefreshData";
 
 function currentTime() {
   return Math.round(Date.now() / 1000);
@@ -16,14 +18,11 @@ function convertToSeconds(dateValue) {
   Ignore the code above
 */
 
+
 export default function MainDetail({
   selectedCrypto: { id, name, current_price, last_updated, symbol },
   updateCryptoData
 }) {
-  // Some parts of the sate will be replaced by your custom hooks
-  const [counter, setCounter] = useState(30);
-  const [playTicker, setPlayTicker] = useState(false);
-  const [currTime, setCurrTime] = useState(currentTime());
 
   //////////////////////////////////////////////////////////////////////////////////////
   //                                                                                  //
@@ -35,60 +34,31 @@ export default function MainDetail({
   //  You can put them all in one custon hook, if you think that's the best approach  //
   //                                                                                  //
   //////////////////////////////////////////////////////////////////////////////////////
-
-  // You can turn this into a custom hook////////////////////
-  useEffect(() => {
-    if (counter < 0) {
-      fetch(getCriptoUpdateUrl(id))
-        .then((resp) => resp.json())
-        .then((data) => {
-          updateCryptoData(
-            {
-              current_price: data[id].gbp,
-              last_updated: data[id]["last_updated_at"]
-            },
-            id
-          );
-        });
-      setCounter(30);
-    }
-  }, [id, counter, setCounter, updateCryptoData]);
-  ///////////////////////////////////////////////////////////
-
-  // You can turn this into a custom hook////////////////////
-  useEffect(() => {
-    const interval =
-      playTicker &&
-      setInterval(() => {
-        setCounter((count) => count - 1);
-      }, 1000);
-
-    return () => clearInterval(interval);
-  }, [setCounter, playTicker]);
-  ///////////////////////////////////////////////////////////
-
-  // You can turn this into a custom hook////////////////////
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrTime((current) => current + 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [setCurrTime]);
-  ///////////////////////////////////////////////////////////
+  const [updateCounter, setUpdateCounter, updatePause, setUpdatePause] = useCounter(30, -1, 1000, true)
+  const [currTime] = useCounter(currentTime(), 1, 1000)
+  const [updateData] = useRefreshData( updateCounter < 0, getCriptoUpdateUrl(id), setUpdateCounter, 30)
+ 
+    useEffect(() =>{
+      if(updateData)updateCryptoData({
+          current_price: updateData[id].gbp,
+          last_updated: updateData[id]["last_updated_at"]
+        },
+        id
+      )},[updateData])
 
   return (
     <>
       <section className="main-detail__central">
         <div className="main-detail__update">
           <p>
-            {playTicker &&
-              `next update ${counter ? `in ${counter}` : "about to happen"}`}
+            {updatePause &&
+              `next update ${updateCounter ? `in ${updateCounter}` : "about to happen"}`}
           </p>
           <button
             className="main-detail__button"
-            onClick={() => setPlayTicker((val) => !val)}
+            onClick={() => setUpdatePause((val) => !val)}
           >
-            {playTicker ? "Pause" : "Start"} update
+            {updatePause ? "Pause" : "Start"} update
           </button>
         </div>
         <div className="main-detail__name">
